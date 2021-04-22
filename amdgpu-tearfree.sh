@@ -11,7 +11,7 @@ fi
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-mkdir -p /etc/X11/xorg.conf.d/
-cp $DIR/20-intel.conf /etc/X11/xorg.conf.d/20-amdgpu.conf
+sudo mkdir -p /etc/X11/xorg.conf.d/
+sudo cp $DIR/data/tearfree/20-amdgpu.conf /etc/X11/xorg.conf.d/20-amdgpu.conf
 
 echo "Success. Please reboot to see effect."

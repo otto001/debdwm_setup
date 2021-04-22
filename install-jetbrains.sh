@@ -2,11 +2,6 @@
 
 set -e
 
-if [[ $EUID -ne 0 ]]; then
-   echo "This script must be run as root" 
-   exit 1
-fi
-
 
 tool_short_name=$1
 tool=$2
@@ -25,7 +20,8 @@ binfile="/usr/local/bin/$tool"
 
 cd /tmp
 #wget https://download-cf.jetbrains.com/python/pycharm-professional-2020.3.2.tar.gz
-wget "https://data.services.jetbrains.com/products/download?code=${tool_short_name}&platform=linux" -O ${tool}.tar.gz -q
+echo "started download"
+wget "https://data.services.jetbrains.com/products/download?code=${tool_short_name}&platform=linux" -O ${tool}.tar.gz
 tar -xzf ${tool}.tar.gz
 echo "downloaded and unpacked ${tool}"
 
@@ -35,7 +31,7 @@ if [ -d $installdir ]; then
 	mv $installdir /tmp/${tool}_old
 fi
 
-mv ${tool}_new $installdir
+sudo mv ${tool}_new $installdir
 
 #if [ -d /usr/local/bin/$tool ]; then
 #	rm /usr/local/bin/$tool
@@ -43,8 +39,8 @@ mv ${tool}_new $installdir
 echo "#! /bin/sh
 wmname LG3D
 ${installdir}/bin/${tool}.sh
-" > $binfile
-chmod +x $binfile
+" | sudo tee $binfile
+sudo chmod +x $binfile
 
 echo "copied program files to ${installdir} and added startup script to ${binfile}"
 

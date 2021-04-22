@@ -2,7 +2,7 @@
 
 set -e
 
-sudo apt install postgresql-13 -y
+sudo apt install postgresql-11 -y
 sudo -u postgres createuser $USER --login --superuser
 sudo -u postgres createdb $USER
 

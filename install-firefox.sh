@@ -7,7 +7,7 @@ wget "https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64" -O fi
 tar -xjf firefox.tar.bz2
 rm firefox.tar.bz2
 
-mv firefox /usr/local/lib/firefox
+sudo mv firefox /usr/local/lib/firefox
 
 set +e
-ln -s  /usr/local/lib/firefox/firefox /usr/local/bin/firefox
+sudo ln -s  /usr/local/lib/firefox/firefox /usr/local/bin/firefox

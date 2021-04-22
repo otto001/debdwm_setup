@@ -2,4 +2,4 @@
 set -e
 cd /tmp
 curl https://getmic.ro | bash
-cp micro /usr/local/bin/micro
+sudo cp micro /usr/local/bin/micro
