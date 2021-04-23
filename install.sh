@@ -3,21 +3,12 @@
 # exit when something fails
 set -e
 
-
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-# unpacking/copying stuff
 
 
 cd $HOME
 if [[ ! -f .gitconfig ]]; then cp $DIR/.gitconfig ./; fi
 
-
-# fix desktop theme (otherwise firefox esr wont upgrade)
-set +e
-sudo rm /usr/share/desktop-base/active-theme
-sudo ln -s /etc/alternatives/desktop-theme /usr/share/desktop-base/active-theme
-set -e
 
 sudo apt update -y
 sudo apt upgrade -y
@@ -42,6 +33,8 @@ function checkinstall {
 		echo "skipping $@, already installed"
 	fi
 }
+
+$DIR/setup-sleep.sh
 
 checkinstall /usr/local/share/fonts/FiraCode-Regular.ttf install-firacode.sh
 

@@ -41,8 +41,8 @@ gitinstall dpower
 gitinstall dblue
 gitinstall daudio
 
-if [ "$1" == "laptop" ]; then
-	sudo apt install xbacklight -y
+if [ ! -z "$(ls -A /sys/class/backlight)" ]; then
+   	sudo apt install xbacklight -y
 	gitinstall dlight
 fi
 
@@ -51,6 +51,13 @@ sudo chown -R $USERNAME:$USERNAME ./*
 sudo cp $DIR/data/dwm/dwm.desktop /usr/share/xsessions/dwm.desktop
 
 mkdir -p ~/.dwm
-cp $DIR/data/dwm/autostart ~/.dwm/autostart.sh
-cp $DIR/data/xconfig/* ~/
+cp $DIR/data/dwm/autostart.sh ~/.dwm/autostart.sh
+
+
+cd $HOME
+mkdir -p /tmp/xconfig/
+cp -u .Xresources .xinitrc .Xmodmap .xsession /tmp/xconfig/
+
+cd $DIR/data/xconfig
+cp -u .Xresources .xinitrc .Xmodmap .xsession ~/
 
