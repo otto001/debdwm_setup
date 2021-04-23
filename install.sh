@@ -7,7 +7,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 
 cd $HOME
-if [[ ! -f .gitconfig ]]; then cp $DIR/.gitconfig ./; fi
+if [[ ! -f .gitconfig ]]; then cp $DIR/data/git/.gitconfig ./; fi
 
 
 sudo apt update -y

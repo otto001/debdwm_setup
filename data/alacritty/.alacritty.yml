@@ -1,0 +1,16 @@
+shell:
+  program: zsh
+
+window:
+ decorations: none
+ padding:
+   x: 10
+   y: 10
+font:
+  size: 14
+  normal:
+    family: Fira Code
+
+background_opacity: 0.9
+
+
