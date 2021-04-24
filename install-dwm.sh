@@ -4,18 +4,29 @@
 set -e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+RES=""
 
-cd $HOME
+cd ~
 
-sudo apt install nitrogen suckless-tools compton xss-lock  -y
-sudo apt install build-essential libx11-dev libxinerama-dev libxft-dev libxrandr-dev sharutils -y
+sudo apt-get install nitrogen suckless-tools compton xss-lock  -y -q
+sudo apt-get install build-essential libx11-dev libxinerama-dev libxft-dev libxrandr-dev sharutils -y -q
 
 rm -f /usr/bin/slock
 
+set +e
+
 function gitinstall {
+	cd ~/suckless
+	echo "installing/updating $1..."
 	if [[ -d $1 ]]; then
 		cd $1
-		git pull || return 0
+		git pull
+
+		if [[ $? -ne 0 ]]; then
+			RES="$RES\nERROR   installing/updating $1: git pull failed"
+			return 0
+		fi
+		
 	else
 		git clone http://github.com/otto001/$1
 		cd $1
@@ -24,13 +35,17 @@ function gitinstall {
 		fi
 	fi
 	
+	sudo make clean install > /dev/null
+	if [[ $? -eq 0 ]]; then
+		RES="$RES\nSUCCESS installing/updating $1"
+	else
+		RES="$RES\nERROR   installing/updating $1: make failed"
+	fi
 
-	sudo make clean install
-	cd ..
 }
 
-mkdir -p suckless
-cd suckless
+mkdir -p ~/suckless
+cd ~/suckless
 
 gitinstall dwm
 gitinstall slstatus
@@ -41,10 +56,15 @@ gitinstall dpower
 gitinstall dblue
 gitinstall daudio
 
+cd ~/suckless
+
+
 if [ ! -z "$(ls -A /sys/class/backlight)" ]; then
-   	sudo apt install xbacklight -y
+   	sudo apt install xbacklight -y -q
 	gitinstall dlight
 fi
+
+set -e
 
 sudo chown -R $USERNAME:$USERNAME ./*
 
@@ -61,3 +81,4 @@ cp -u .Xresources .xinitrc .Xmodmap .xsession /tmp/xconfig/
 cd $DIR/data/xconfig
 cp -u .Xresources .xinitrc .Xmodmap .xsession ~/
 
+echo -e $RES
