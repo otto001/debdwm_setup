@@ -8,8 +8,8 @@ remove mod4 = Hyper_L
 ! Set mod3 to capslock
 add mod3 = Hyper_L
 
-keycode 66 = Mode_switch Multi_key
-keycode 117 = Mode_switch Multi_key
+keycode 66 = Mode_switch Mode_switch
+keycode 117 = Mode_switch Mode_switch
 keycode 39 = s S ssharp
 keycode 38 = a A adiaeresis Adiaeresis
 keycode 30 = u U udiaeresis Udiaeresis
