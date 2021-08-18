@@ -3,23 +3,45 @@
 set -e
 
 sudo apt install zsh -y
-#sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-mkdir -p /tmp/zsh
-cd /tmp/zsh
-rm -Rf *
-tar -xzf $DIR/data/zsh/zsh-config.tar.gz
-if [[ ! -d /root/.oh-my-zsh ]]; then
-	sudo cp -r .oh-my-zsh /root/
-	sudo cp -r .zshrc /root/
+
+export RUNZSH=no
+curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh > /tmp/oh-my-zsh-install.sh
+
+set +e
+$(sudo test -d /root/.oh-my-zsh)
+INSTALL_FOR_ROOT=$?
+set -e
+
+
+if [[ ! INSTALL_FOR_ROOT -eq 0 ]]; then
+	echo "INSTALLING ZSH for root..."
+	sudo sh /tmp/oh-my-zsh-install.sh --unattended
+	
+	sudo cp $DIR/data/zsh/.zshrc /root/
+	sudo cp $DIR/data/zsh/custom-agnoster.zsh-theme /root/.oh-my-zsh/custom/themes/
 	sudo chown -R root:root /root/.oh-my-zsh /root/.zshrc
+
+	echo "INSTALLED ZSH for root"
+else
+	echo "SKIPPED INSTALLING ZSH for root"
 fi
 
+
 if [[ ! -d $HOME/.oh-my-zsh ]]; then
-	cp -r .oh-my-zsh $HOME
-	cat .zshrc | sed "s,/root/,$HOME,g" | sed "s,root,$USER,g" > $HOME/.zshrc
+	echo "INSTALLING ZSH for $USER..."
+
+	sh /tmp/oh-my-zsh-install.sh --unattended
+
+	sudo cp $DIR/data/zsh/custom-agnoster.zsh-theme $HOME/.oh-my-zsh/custom/themes/
+	cat $DIR/data/zsh/.zshrc | sed "s,/root,$HOME,g" | sed "s,root,$USER,g" > /$HOME/.zshrc
 	chown -R $1:$1 $HOME/.oh-my-zsh $HOME/.zshrc
+
+	echo "INSTALLED ZSH for $USER"
+else
+	echo "SKIPPED INSTALLING ZSH for $USER"
 fi
-rm -Rf /tmp/zsh
+
