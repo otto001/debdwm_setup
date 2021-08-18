@@ -38,10 +38,10 @@ if [[ ! -d $HOME/.oh-my-zsh ]]; then
 
 	sudo cp $DIR/data/zsh/custom-agnoster.zsh-theme $HOME/.oh-my-zsh/custom/themes/
 	cat $DIR/data/zsh/.zshrc | sed "s,/root,$HOME,g" | sed "s,root,$USER,g" > /$HOME/.zshrc
+
 	chown -R $1:$1 $HOME/.oh-my-zsh $HOME/.zshrc
 
 	echo "INSTALLED ZSH for $USER"
 else
 	echo "SKIPPED INSTALLING ZSH for $USER"
 fi
-
