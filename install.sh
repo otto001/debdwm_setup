@@ -18,9 +18,6 @@ sudo apt install git wget curl xinput xclip -y
 git config --global credential.helper store
 git config --global pull.rebase false
 
-sudo git config --global user.email "root@root.root"
-sudo git config --global user.name "ludwg root"
-
 function checkinstall {
 	install_script=$DIR/$2
 	if [ ! -e $1 ]; then
@@ -55,16 +52,10 @@ checkinstall /usr/local/bin/pycharm install-jetbrains.sh PCP pycharm
 checkinstall /usr/local/bin/clion install-jetbrains.sh CL clion
 checkinstall /usr/local/bin/webstorm install-jetbrains.sh WS webstorm
 
-#checkinstall /usr/bin/psql install-postgresql-13.sh $USER
+if [[ ! $(groups) == *"sudo"* ]]; then
+	# add user to sudo group
+	sudo /sbin/adduser $USER sudo
+	echo "User $USER might have to logout&login again to be able to use sudo"
+fi
 
-sudo apt install npm -y
-
-# sudoers file -- apparently not needed anymore
-#sed -i 's/#includedir \/etc\/sudoers.d/includedir /etc/sudoers.d/'
-#mkdir -p /etc/sudoers.d/
-#cp $DIR/sudoers-poweroff /etc/sudoers.d/powermanagment
-
-# sudo groups
-sudo /sbin/adduser $USER sudo
-echo "User $USER might have to logout&login again to be able to use sudo"
 
