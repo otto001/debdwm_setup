@@ -64,6 +64,9 @@ if [ ! -z "$(ls -A /sys/class/backlight)" ]; then
 	gitinstall dlight
 fi
 
+# xss-lock custom version
+sudo wget https://github.com/otto001/xss-lock/releases/download/v0.3.1/xss-lock-debian -q -O /usr/local/bin/xss-lock
+
 set -e
 
 sudo chown -R $USERNAME:$USERNAME ./*
