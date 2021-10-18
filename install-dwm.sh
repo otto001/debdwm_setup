@@ -8,8 +8,9 @@ RES=""
 
 cd ~
 
-sudo apt-get install nitrogen suckless-tools compton xss-lock  -y -q
-sudo apt-get install build-essential libx11-dev libxinerama-dev libxft-dev libxrandr-dev sharutils -y -q
+sudo apt-get install -y -q \
+ nitrogen suckless-tools compton xss-lock \
+ build-essential libx11-dev libxinerama-dev libxft-dev libxrandr-dev sharutils
 
 rm -f /usr/bin/slock
 
@@ -20,10 +21,15 @@ function gitinstall {
 	echo "installing/updating $1..."
 	if [[ -d $1 ]]; then
 		cd $1
-		git pull
+		PULL_RES=$(git pull)
 
 		if [[ $? -ne 0 ]]; then
 			RES="$RES\nERROR   installing/updating $1: git pull failed"
+			return 0
+		fi
+
+		if [[ "$PULL_RES" == "Already up to date." ]]; then
+			RES="$RES\nSUCCESS no updates for $1"
 			return 0
 		fi
 		
@@ -74,7 +80,13 @@ sudo chown -R $USERNAME:$USERNAME ./*
 sudo cp $DIR/data/dwm/dwm.desktop /usr/share/xsessions/dwm.desktop
 
 mkdir -p ~/.dwm
-cp $DIR/data/dwm/autostart.sh ~/.dwm/autostart.sh
+mkdir -p ~/.dwm/autostart.d/
+cp -p $DIR/data/dwm/autostart.sh ~/.dwm/autostart.sh
+cp -R -n -p $DIR/data/dwm/autostart.d/* ~/.dwm/autostart.d/
+
+if [[ -f "~/.dwm/autostartExtra.sh" ]]; then
+    mv ~/.dwm/autostartExtra.sh ~/.dwm/autostart.d/autostartExtra.sh
+fi
 
 
 cd $HOME
