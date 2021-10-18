@@ -9,7 +9,7 @@ RES=""
 cd ~
 
 sudo apt-get install -y -q \
- nitrogen suckless-tools compton xss-lock \
+ nitrogen suckless-tools compton xss-lock playerctl \
  build-essential libx11-dev libxinerama-dev libxft-dev libxrandr-dev sharutils
 
 rm -f /usr/bin/slock
