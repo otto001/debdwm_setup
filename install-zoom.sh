@@ -1,6 +1,10 @@
 #! /bin/bash
 set -e
 
+
+wget https://zoom.us/client/latest/zoom_amd64.deb -O /tmp/zoom.deb
+sudo apt install /tmp/zoom.deb
+
 if lsmod | grep "i915" &> /dev/null ; then
   sudo rm /usr/bin/zoom
   
