@@ -1,0 +1,8 @@
+# Testing repository - main, contrib and non-free branches
+deb http://http.us.debian.org/debian testing main non-free contrib
+deb-src http://http.us.debian.org/debian testing main non-free contrib
+
+
+# Testing security updates repository
+deb http://security.debian.org/ testing-security main contrib non-free
+deb-src http://security.debian.org/ testing-security main contrib non-free
