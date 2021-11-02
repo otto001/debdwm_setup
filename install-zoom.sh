@@ -10,7 +10,7 @@ if lsmod | grep "i915" &> /dev/null ; then
   
   cat >/tmp/zoom <<EOL
 #!/bin/sh
-vblank_mode=0 /opt/zoom/ZoomLauncher "$@"
+vblank_mode=0 /opt/zoom/ZoomLauncher "\$@"
 EOL
   
   sudo install -m 0755 /tmp/zoom /usr/bin
