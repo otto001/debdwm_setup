@@ -1,0 +1,129 @@
+#!/bin/bash
+# Usage: scan_perpage <imagefile>
+#   where imagefile is the data just scanned
+# (specify this script to scanadf via -S)
+
+usage()
+{
+  echo "Usage: $0 <imagefile>"
+  echo "Set the following environment variables:"
+  echo "  UNPAPER"
+  echo "  SEARCHABLE"
+  echo "  LANGUAGE"
+  echo "  RESOLUTION"
+  echo "  PGWIDTHIN"
+  echo "  PGHEIGHTIN"
+  echo "  SKIP_EMPTY_PAGES"
+  echo "  PS2PDF_OPTS (optional)"
+  echo "  VERBOSE (optional)"
+  echo "  LOCKFILE (required if VERBOSE=1)"
+}
+
+log()
+{
+  if [[ $VERBOSE == 1 ]]; then
+    echo "scan_perpage: $1"
+  fi
+}
+
+logstdout()
+{
+  if [[ $VERBOSE == 1 ]]; then
+    cat
+  else
+    cat > /dev/null
+  fi
+}
+
+runconstrained()
+{
+  if [[ -x "$(command -v sem)" ]]; then
+    # use up to 75% of the cores available
+    sem --jobs 75% --id scan_perpage --fg "$@"
+  else
+    "$@"
+  fi
+}
+
+if [[ $# < 1 ]]; then
+  usage
+  exit 1
+fi
+
+if [[ "$UNPAPER" == "" || "$SEARCHABLE" == "" || "$RESOLUTION" == "" || "$RESOLUTION" == "" || "$SKIP_EMPTY_PAGES" == "" ]]; then
+  usage
+  exit 1
+fi
+
+IMAGE_PATH=$1
+IMAGE_DIR=$(dirname $1)
+IMAGE_FILE=$(basename $1)
+
+process_page() {
+  log ""
+  log "-------------------------------------------------------------------------------"
+  log "Post-processing scanned page ${IMAGE_PATH}, deskew=$UNPAPER, searchable=$SEARCHABLE..."
+  log "-------------------------------------------------------------------------------"
+
+  if [[ $SKIP_EMPTY_PAGES -eq 1 ]]; then
+    PERCENTAGE_WHITE=$(convert "$IMAGE_PATH" -fuzz 0% -negate -threshold 0 -negate -format "%[fx:100*mean]" info:) || PERCENTAGE_WHITE=0
+    log "$IMAGE_PATH has $PERCENTAGE_WHITE % white"
+  else
+    PERCENTAGE_WHITE=0
+  fi
+
+  PP_PREFIX=
+  if (( $(echo "$PERCENTAGE_WHITE < 99.8" | bc -l) )); then
+    if [[ $UNPAPER == 1 ]]; then
+      log "Applying unpaper post-processing to image data..."
+      PP_PREFIX="unpaper-"
+      if [[ $VERBOSE == 1 ]]; then
+        UNPAPERVERBOSE="-v"
+      fi
+      #runconstrained unpaper $UNPAPERVERBOSE --no-mask-scan --overwrite --dpi $RESOLUTION --no-blackfilter $IMAGE_FILE $PP_PREFIX$IMAGE_FILE | logstdout
+      runconstrained unpaper $UNPAPERVERBOSE --overwrite --dpi $RESOLUTION $IMAGE_PATH $IMAGE_DIR/$PP_PREFIX$IMAGE_FILE | logstdout
+    fi
+    if [[ $SEARCHABLE == 1 ]]; then
+      log "Converting image data to searchable pdf..."
+      # tesseract uses the input's DPI header, we need to convert to a format that supports this (like tiff)
+      runconstrained convert -density ${RESOLUTION}x${RESOLUTION} -units PixelsPerInch $IMAGE_DIR/$PP_PREFIX$IMAGE_FILE $IMAGE_DIR/$PP_PREFIX${IMAGE_FILE}.tiff | logstdout
+      runconstrained tesseract $IMAGE_DIR/$PP_PREFIX${IMAGE_FILE}.tiff $IMAGE_DIR/${IMAGE_FILE%.*} -l $LANGUAGE pdf | logstdout
+      [[ -f $IMAGE_DIR/$PP_PREFIX${IMAGE_FILE}.tiff ]] && rm $IMAGE_DIR/$PP_PREFIX${IMAGE_FILE}.tiff
+    else
+      log "Converting image data to pdf..."
+      if [[ "$PGWIDTHIN" == "" || "$PGHEIGHTIN" == "" ]]; then
+        PAGEOPTS="-equalpixels -dpi=$RESOLUTION -noturn"
+      else
+        PAGEOPTS="-imagewidth $PGWIDTHIN -imageheight $PGHEIGHTIN"
+      fi
+      PNMVERBOSE=
+      # older versions of pnmtops (Ubuntu, Debian) don't have the -verbose option, test for it
+      if [[ $VERBOSE = 1 && ! "$(pnmtops -verbose 2>&1 < /dev/null)" =~ "unrecognized option" ]]; then
+        PNMVERBOSE="-verbose"
+      fi
+      log "Using page options: $PAGEOPTS"
+      runconstrained pnmtops $PNMVERBOSE $PAGEOPTS $IMAGE_DIR/$PP_PREFIX$IMAGE_FILE | ps2pdf $PS2PDF_OPTS - > $IMAGE_DIR/${IMAGE_FILE%.*}.pdf | logstdout
+      [[ -f $IMAGE_DIR/$PP_PREFIX${IMAGE_FILE}.ps ]] && rm $IMAGE_DIR/$PP_PREFIX${IMAGE_FILE}.ps
+    fi    
+  else
+    log "Skipping empty page $IMAGE_FILE with white percentage $PERCENTAGE_WHITE"
+  fi
+
+  status=$?
+  rm $IMAGE_PATH
+  [[ -f $IMAGE_DIR/$PP_PREFIX${IMAGE_FILE} ]] && rm $IMAGE_DIR/$PP_PREFIX${IMAGE_FILE}
+
+  log ""
+  log "Scan page processing done, status = $status"
+}
+
+if [[ $VERBOSE == 1 ]]; then
+  (
+    flock 200
+    process_page
+  ) 200>$LOCKFILE
+else
+  process_page
+fi;
+
+exit $status
