@@ -1,22 +1,20 @@
 #!/bin/bash
 
-DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+DIR="$( cd "$( dirname "$( readlink -f "$0")")" && pwd)"
 
-DEVICE=fujitsu
+DEVICE=
 OUTPUT=scan.pdf
 OUTPUTARR=()
 USEOUTPUT=0
 USEARRAY=0
 APPEND=0
 RESOLUTION=300
-MODE=Lineart
+MODE=Color
 SCRIPT="$DIR/scan_perpage"
-DUPLEX=0
 UNPAPER=0
 SEARCHABLE=0
 LANGUAGE=eng
-MAXPAGE=
-TRUNCPAGE=0
+LANDSCAPE=0
 HELP=0
 SIZE=
 DEFAULTSIZE=1
@@ -24,8 +22,8 @@ PGHEIGHT=
 PGHEIGHTIN=
 PGWIDTH=
 PGWIDTHIN=
-CROP=0
-DESKEW=0
+CROP=
+DESKEW=
 DRIVER_OPTION=
 VERBOSE=0
 SKIP_EMPTY_PAGES=0
@@ -43,25 +41,19 @@ while [[ $# > 0 ]]; do
 
   -v|--verbose) VERBOSE=1 ;;
 
-  -d|--duplex) DUPLEX=1 ;;
-
   -m|--mode) shift; MODE=$1 ;;
 
   -r|--resolution) shift; RESOLUTION=$1 ;;
 
   -a|--append) APPEND=1 ;;
 
-  -e|--max) shift; MAXPAGE=$1 ;;
-
-  -t|--truncate) shift; TRUNCPAGE=$1 ;;
-
   -h|--help) HELP=1 ;;
 
   -s|--size) shift; SIZE=$1 ;;
 
-  -ph|--page-height) shift; PGHEIGHT=$1 ;;
+  -x) shift; PGHEIGHT=$1 ;;
 
-  -pw|--page-width) shift; PGWIDTH=$1 ;;
+  -y) shift; PGWIDTH=$1 ;;
 
   --no-default-size) DEFAULTSIZE=0 ;;
 
@@ -74,6 +66,8 @@ while [[ $# > 0 ]]; do
   --searchable|--ocr) SEARCHABLE=1 ;;
 
   --language) shift; LANGUAGE=$1 ;;
+  
+  --landscape) LANDSCAPE=1 ;;
 
   --skip-empty-pages) SKIP_EMPTY_PAGES=1 ;;
 
@@ -81,9 +75,9 @@ while [[ $# > 0 ]]; do
 
   -l|--outputlist) shift; USEARRAY=1; OUTPUTARR=(); OUTPUTARR+=("$1") ;;
 
-  -x|--device) shift; DEVICE=$1;;
+  -d|--device) shift; DEVICE=$1;;
 
-  -xo|--driver-options) shift; DRIVER_OPTION=$1;;
+  -do|--driver-options) shift; DRIVER_OPTION=$1;;
 
   *) if [[ $USEARRAY == 1 ]]; then OUTPUTARR+=("$1"); else echo >&2 "Unknown argument: $1"; exit 1; fi ;;
 
@@ -97,29 +91,23 @@ if [[ $HELP == 1 ]]; then
   echo "OPTIONS"
   echo " -v, --verbose"
   echo "   Verbose output (this will slow down the scan due to the need to prevent interleaved output)"
-  echo " -d, --duplex"
-  echo "   Duplex scanning"
   echo " -m, --mode"
-  echo "   Mode e.g. Lineart (default), Halftone, Gray, Color, etc."
+  echo "   Mode e.g. Lineart, Halftone, Gray, Color (default), etc."
   echo " -r, --resolution"
   echo "   Resolution e.g 300 (default)"
   echo " -a, --append"
   echo "   Append output to existing scan"
-  echo " -e, --max <pages>"
-  echo "   Max number of pages e.g. 2 (default is all pages)"
-  echo " -t, --truncate <pages>"
-  echo "   Truncate number of pages from end e.g. 1 (default is none) -- truncation happens after --skip-empty-pages"
   echo " -s, --size"
-  echo "   Page Size as type e.g. Letter (default), Legal, A4, no effect if --crop is specified"
-  echo " -ph, --page-height"
+  echo "   Page Size as type e.g. Letter, Legal, A4 (default), no effect if --crop is specified"
+  echo " -x"
   echo "   Custom Page Height in mm"
-  echo " -pw, --page-width"
+  echo " -y"
   echo "   Custom Page Width in mm"
-  echo " -x, --device"
-  echo "  Override scanner device name, defaulting to \"fujitsu\""
-  echo " -xo, --driver-options"
+  echo " -d, --device"
+  echo "  Override scanner device name, defaulting to the first connected device"
+  echo " -do, --driver-options"
   echo "  Send additional options to the scanner driver e.g."
-  echo "  -xo \"--whatever bar --frobnitz baz\""
+  echo "  -do \"--whatever bar --frobnitz baz\""
   echo " --no-default-size"
   echo "   Disable default page size, useful if driver does not support page size/location arguments"
   echo " --crop"
@@ -128,12 +116,14 @@ if [[ $HELP == 1 ]]; then
   echo "   Run driver deskew (driver must support this)"
   echo " --unpaper"
   echo "   Run post-processing deskew and black edge detection (requires unpaper)"
+  echo " --landscape"
+  echo "   Turn the image 90 degrees"
   echo " --ocr"
   echo "   Run OCR to make the PDF searchable (requires tesseract)"
   echo " --language <lang>"
   echo "   which language to use for OCR"
   echo " --skip-empty-pages"
-  echo "   remove empty pages from resulting PDF document (e.g. one sided doc in duplex mode)"
+  echo "   remove empty pages from resulting PDF document"
   echo ""
   echo "OUTPUT"
   echo " -o, --output <outputfile>"
@@ -172,6 +162,10 @@ if [[ $USEARRAY == 1 && $APPEND != 1 ]]; then
   done
 fi
 
+if [[ ! -z $DEVICE ]]; then
+	DEVICE="-d \"$DEVICE\""
+fi
+echo $DEVICE
 if [[ $USEARRAY == 1 ]]; then
   OUTPUT=("${OUTPUTARR[@]}")
 fi
@@ -181,15 +175,11 @@ if [[ $DUPLEX == 1 ]]; then
   SOURCE="--source \"ADF Duplex\""
 fi
 
-if [[ "$MAXPAGE" != "" ]]; then
-  MAXPAGE="-e $MAXPAGE"
-fi
-
 PS2PDF_OPTS=
 
 if [[ $CROP != 1 && $SIZE == "" && $DEFAULTSIZE == 1 ]]; then
   # Default to Letter size, but only if crop is not specified and this feature is not disabled
-  SIZE=Letter
+  SIZE=A4
 fi
 
 case "$SIZE" in
@@ -204,13 +194,13 @@ esac
 
 if [[ $CROP != 1 && "$PGHEIGHT" != "" ]]; then
   PGHEIGHTIN=$(units --compact -1 "$PGHEIGHT mm" 'in')
-  PGHEIGHT="--page-height $PGHEIGHT -y $PGHEIGHT"
+  PGHEIGHT="-y $PGHEIGHT"
   PS2PDF_OPTS="-dEPSCrop"
 fi
 
 if [[ $CROP != 1 && "$PGWIDTH" != "" ]]; then
   PGWIDTHIN=$(units --compact -1 "$PGWIDTH mm" 'in')
-  PGWIDTH="--page-width $PGWIDTH -x $PGWIDTH"
+  PGWIDTH="-x $PGWIDTH"
   PS2PDF_OPTS="-dEPSCrop"
 fi
 
@@ -236,6 +226,7 @@ export PGWIDTHIN
 export PGHEIGHTIN
 export PS2PDF_OPTS
 export SKIP_EMPTY_PAGES
+export LANDSCAPE
 
 if [[ $VERBOSE == 1 ]]; then
   LOCKFILE=$(mktemp)
@@ -245,61 +236,45 @@ fi;
 
 echo >&2 "Scanning..."
 #eval strace -f -o /tmp/scan-trace.txt scanadf -d $DEVICE $MAXPAGE $PGHEIGHT $PGWIDTH -S $SCRIPT --script-wait --resolution $RESOLUTION --mode $MODE $DESKEW $CROP $SOURCE -o scan-%04d
-eval scanadf -d "$DEVICE" $MAXPAGE $PGHEIGHT $PGWIDTH -S $SCRIPT --script-wait --resolution $RESOLUTION --mode $MODE $DESKEW $CROP $DRIVER_OPTION $SOURCE -o $TMP_DIR/scan-%04d
+eval scanimage $DEVICE $PGHEIGHT $PGWIDTH --resolution $RESOLUTION --mode $MODE $DESKEW $CROP $DRIVER_OPTION $SOURCE -o $TMP_DIR/scan-1.pnm || { echo "Scanning failed."; exit 1; }
+echo >&2 "Scan complete. Postprocessing..."
+eval $SCRIPT $TMP_DIR/scan-1.pnm
 
-shopt -s extglob nullglob
-pdffiles=($TMP_DIR/scan-[0-9]*.pdf)
-numscans=${#pdffiles[@]}
-if [[ $numscans > 0 ]]; then
-  echo "Processing $numscans pages"
-  if [[ $numscans > $TRUNCPAGE && $TRUNCPAGE > 0 ]]; then
-    for x in ${pdffiles[@]:$numscans-$TRUNCPAGE:$TRUNCPAGE}; do rm "$x"; done;
-    pdffiles=(${pdffiles[@]:0:$numscans-$TRUNCPAGE})
-    echo "Truncated $TRUNCPAGE pages"
+if [[ $APPEND == 1 ]]; then
+  echo "Concatenating pdfs..."
+  if [[ -f "$OUTPUT" ]]; then
+    mv "$OUTPUT" "${OUTPUT}.orig"
   fi
-  if [[ $numscans > 1 && $USEARRAY == 1 ]]; then
-    echo "Naming pdfs based on output list..."
-    output_count=${#OUTPUT[@]}
-    index=0
-    while [[ "$index" < "$output_count" ]]; do
-      let "scanno = $index + 1"
-      if [[ -f "${OUTPUT[$index]}" ]]; then
-        mv "${OUTPUT[$index]}" "${OUTPUT[$index]}.orig"
-        if [[ $APPEND == 1 ]]; then
-          pdffiles=()
-          if [[ -f "${OUTPUT[$index]}.orig" ]]; then
-            pdffiles+=("${OUTPUT[$index]}.orig")
-          fi
-          pdffiles+=($TMP_DIR/scan-*(0)$scanno.pdf)
-          pdfunite "${pdffiles[@]}" "${OUTPUT[$index]}" && rm $TMP_DIR/scan-*(0)$scanno.pdf
-        else
-          mv $TMP_DIR/scan-*(0)$scanno.pdf "${OUTPUT[$index]}"
-        fi
-      else
-        mv $TMP_DIR/scan-*(0)$scanno.pdf "${OUTPUT[$index]}"
-      fi
-      let "index = $index + 1"
-    done
-  elif [[ $numscans > 1 || $APPEND == 1 ]]; then
-    echo "Concatenating pdfs..."
-    if [[ -f "$OUTPUT" ]]; then
-      mv "$OUTPUT" "${OUTPUT}.orig"
-    fi
-    pdffiles=()
-    if [[ -f "${OUTPUT}.orig" ]]; then
-      pdffiles+=("${OUTPUT}.orig")
-    fi
-    pdffiles+=($TMP_DIR/scan-[0-9]*.pdf)
-    pdfunite "${pdffiles[@]}" "$OUTPUT" && rm $TMP_DIR/scan-[0-9]*.pdf
-  else
-    if [[ $USEARRAY == 1 ]]; then
-      mv $TMP_DIR/scan-0*.pdf "${OUTPUT[0]}"
-    else
-      mv $TMP_DIR/scan-0*.pdf "$OUTPUT"
-    fi
+  pdffiles=()
+  if [[ -f "${OUTPUT}.orig" ]]; then
+    pdffiles+=("${OUTPUT}.orig")
   fi
-  echo ""
-  echo "Done."
+  pdffiles+=($TMP_DIR/scan-1.pdf)
+  pdfunite "${pdffiles[@]}" "$OUTPUT" && rm $TMP_DIR/scan-[0-9]*.pdf
+
 else
-  echo "Found no scans."
+	mv $TMP_DIR/scan-1.pdf $OUTPUT
 fi
+echo >&2 "Done."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
