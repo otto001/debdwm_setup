@@ -253,7 +253,7 @@ if [[ $APPEND == 1 ]]; then
   pdfunite "${pdffiles[@]}" "$OUTPUT" && rm $TMP_DIR/scan-[0-9]*.pdf
 
 else
-	mv $TMP_DIR/scan-1.pdf $OUTPUT
+	mv "$TMP_DIR/scan-1.pdf" "$OUTPUT"
 fi
 echo >&2 "Done."
 
