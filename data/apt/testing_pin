@@ -1,3 +1,3 @@
 Package: *
-Pin: release a=stable
-Pin-Priority: 600
+Pin: release a=testing
+Pin-Priority: 400
