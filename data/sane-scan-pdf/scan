@@ -1,0 +1,280 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "$( readlink -f "$0")")" && pwd)"
+
+DEVICE=
+OUTPUT=scan.pdf
+OUTPUTARR=()
+USEOUTPUT=0
+USEARRAY=0
+APPEND=0
+RESOLUTION=300
+MODE=Color
+SCRIPT="$DIR/scan_perpage"
+UNPAPER=0
+SEARCHABLE=0
+LANGUAGE=eng
+LANDSCAPE=0
+HELP=0
+SIZE=
+DEFAULTSIZE=1
+PGHEIGHT=
+PGHEIGHTIN=
+PGWIDTH=
+PGWIDTHIN=
+CROP=
+DESKEW=
+DRIVER_OPTION=
+VERBOSE=0
+SKIP_EMPTY_PAGES=0
+
+TMP_DIR=$(mktemp -d -p "" scan.XXXXXXXXXX)
+cleanup()
+{
+  rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
+
+# Parse command-line options
+while [[ $# > 0 ]]; do
+  case "$1" in
+
+  -v|--verbose) VERBOSE=1 ;;
+
+  -m|--mode) shift; MODE=$1 ;;
+
+  -r|--resolution) shift; RESOLUTION=$1 ;;
+
+  -a|--append) APPEND=1 ;;
+
+  -h|--help) HELP=1 ;;
+
+  -s|--size) shift; SIZE=$1 ;;
+
+  -x) shift; PGHEIGHT=$1 ;;
+
+  -y) shift; PGWIDTH=$1 ;;
+
+  --no-default-size) DEFAULTSIZE=0 ;;
+
+  --crop) CROP=1 ;;
+
+  --deskew) DESKEW=1 ;;
+
+  --unpaper) UNPAPER=1 ;;
+
+  --searchable|--ocr) SEARCHABLE=1 ;;
+
+  --language) shift; LANGUAGE=$1 ;;
+  
+  --landscape) LANDSCAPE=1 ;;
+
+  --skip-empty-pages) SKIP_EMPTY_PAGES=1 ;;
+
+  -o|--output) shift; USEOUTPUT=1; OUTPUT="$1" ;;
+
+  -l|--outputlist) shift; USEARRAY=1; OUTPUTARR=(); OUTPUTARR+=("$1") ;;
+
+  -d|--device) shift; DEVICE=$1;;
+
+  -do|--driver-options) shift; DRIVER_OPTION=$1;;
+
+  *) if [[ $USEARRAY == 1 ]]; then OUTPUTARR+=("$1"); else echo >&2 "Unknown argument: $1"; exit 1; fi ;;
+
+  esac
+  shift   # next option
+done
+
+if [[ $HELP == 1 ]]; then
+  echo "$(basename $0) [OPTIONS]... [OUTPUT]"
+  echo ""
+  echo "OPTIONS"
+  echo " -v, --verbose"
+  echo "   Verbose output (this will slow down the scan due to the need to prevent interleaved output)"
+  echo " -m, --mode"
+  echo "   Mode e.g. Lineart, Halftone, Gray, Color (default), etc."
+  echo " -r, --resolution"
+  echo "   Resolution e.g 300 (default)"
+  echo " -a, --append"
+  echo "   Append output to existing scan"
+  echo " -s, --size"
+  echo "   Page Size as type e.g. Letter, Legal, A4 (default), no effect if --crop is specified"
+  echo " -x"
+  echo "   Custom Page Height in mm"
+  echo " -y"
+  echo "   Custom Page Width in mm"
+  echo " -d, --device"
+  echo "  Override scanner device name, defaulting to the first connected device"
+  echo " -do, --driver-options"
+  echo "  Send additional options to the scanner driver e.g."
+  echo "  -do \"--whatever bar --frobnitz baz\""
+  echo " --no-default-size"
+  echo "   Disable default page size, useful if driver does not support page size/location arguments"
+  echo " --crop"
+  echo "   Crop to contents (driver must support this)"
+  echo " --deskew"
+  echo "   Run driver deskew (driver must support this)"
+  echo " --unpaper"
+  echo "   Run post-processing deskew and black edge detection (requires unpaper)"
+  echo " --landscape"
+  echo "   Turn the image 90 degrees"
+  echo " --ocr"
+  echo "   Run OCR to make the PDF searchable (requires tesseract)"
+  echo " --language <lang>"
+  echo "   which language to use for OCR"
+  echo " --skip-empty-pages"
+  echo "   remove empty pages from resulting PDF document"
+  echo ""
+  echo "OUTPUT"
+  echo " -o, --output <outputfile>"
+  echo "   Output to named file default=scan.pdf"
+  echo " -l, --outputlist <outputfile-1...outputfile-n> Output to named files for each scanned page, can be used with append"
+  echo ""
+  exit 0
+fi
+
+if [[ $USEARRAY == 1 && $USEOUTPUT == 1 ]]; then
+  echo >&2 "Use one of -o or -l. Aborting."
+  exit 1
+fi
+
+if [[ $USEOUTPUT == 1 && "$OUTPUT" == "" ]]; then
+  echo >&2 "Output file must be specified. Aborting."
+  exit 1
+fi
+
+if [[ $USEOUTPUT == 1 && -f "$OUTPUT" && $APPEND != 1 ]]; then
+  echo >&2 "Output file $OUTPUT already exists. Delete or specify -a. Aborting."
+  exit 1
+fi
+
+if [[ $USEARRAY == 1 && ${#OUTPUTARR[@]} == 0 ]]; then
+  echo >&2 "At least one file must be specified with -l. Aborting."
+  exit 1
+fi
+
+if [[ $USEARRAY == 1 && $APPEND != 1 ]]; then
+  for o in "${OUTPUTARR[@]}"; do
+    if [[ -f "$o" ]]; then
+      echo >&2 "Output file $o already exists. Delete or specify -a. Aborting."
+      exit 1
+    fi
+  done
+fi
+
+if [[ ! -z $DEVICE ]]; then
+	DEVICE="-d \"$DEVICE\""
+fi
+echo $DEVICE
+if [[ $USEARRAY == 1 ]]; then
+  OUTPUT=("${OUTPUTARR[@]}")
+fi
+
+SOURCE=""
+if [[ $DUPLEX == 1 ]]; then
+  SOURCE="--source \"ADF Duplex\""
+fi
+
+PS2PDF_OPTS=
+
+if [[ $CROP != 1 && $SIZE == "" && $DEFAULTSIZE == 1 ]]; then
+  # Default to Letter size, but only if crop is not specified and this feature is not disabled
+  SIZE=A4
+fi
+
+case "$SIZE" in
+
+  Letter) PGHEIGHT=279.4; PGWIDTH=215.9 ;;
+
+  Legal) PGHEIGHT=355.6; PGWIDTH=215.9 ;;
+
+  A4) PGHEIGHT=297; PGWIDTH=210 ;;
+
+esac
+
+if [[ $CROP != 1 && "$PGHEIGHT" != "" ]]; then
+  PGHEIGHTIN=$(units --compact -1 "$PGHEIGHT mm" 'in')
+  PGHEIGHT="-y $PGHEIGHT"
+  PS2PDF_OPTS="-dEPSCrop"
+fi
+
+if [[ $CROP != 1 && "$PGWIDTH" != "" ]]; then
+  PGWIDTHIN=$(units --compact -1 "$PGWIDTH mm" 'in')
+  PGWIDTH="-x $PGWIDTH"
+  PS2PDF_OPTS="-dEPSCrop"
+fi
+
+if [[ $CROP == 1 ]]; then
+  CROP="--swcrop=yes --ald=yes"
+  # In duplex mode, the driver's buffer for the back side image will be larger than necessary, oh well
+  # http://sane.10972.n7.nabble.com/Fujitsu-backend-and-iX500-scanning-page-longer-than-14-Inches-td19303.html
+  PGHEIGHT="--page-height 9999 -y 9999"
+  PGWIDTH="--page-width 9999 -x 9999"
+  PS2PDF_OPTS="-dEPSCrop"
+fi
+
+if [[ $DESKEW == 1 ]]; then
+  DESKEW="--swdeskew=yes"
+fi
+
+export VERBOSE
+export UNPAPER
+export SEARCHABLE
+export LANGUAGE
+export RESOLUTION
+export PGWIDTHIN
+export PGHEIGHTIN
+export PS2PDF_OPTS
+export SKIP_EMPTY_PAGES
+export LANDSCAPE
+
+if [[ $VERBOSE == 1 ]]; then
+  LOCKFILE=$(mktemp)
+  trap "cleanup; rm -rf $LOCKFILE" EXIT
+  export LOCKFILE
+fi;
+
+echo >&2 "Scanning..."
+#eval strace -f -o /tmp/scan-trace.txt scanadf -d $DEVICE $MAXPAGE $PGHEIGHT $PGWIDTH -S $SCRIPT --script-wait --resolution $RESOLUTION --mode $MODE $DESKEW $CROP $SOURCE -o scan-%04d
+eval scanimage $DEVICE $PGHEIGHT $PGWIDTH --resolution $RESOLUTION --mode $MODE $DESKEW $CROP $DRIVER_OPTION $SOURCE -o $TMP_DIR/scan-1.pnm || { echo "Scanning failed."; exit 1; }
+echo >&2 "Scan complete. Postprocessing..."
+eval $SCRIPT $TMP_DIR/scan-1.pnm
+
+if [[ $APPEND == 1 ]]; then
+  echo "Concatenating pdfs..."
+  if [[ -f "$OUTPUT" ]]; then
+    mv "$OUTPUT" "${OUTPUT}.orig"
+  fi
+  pdffiles=()
+  if [[ -f "${OUTPUT}.orig" ]]; then
+    pdffiles+=("${OUTPUT}.orig")
+  fi
+  pdffiles+=($TMP_DIR/scan-1.pdf)
+  pdfunite "${pdffiles[@]}" "$OUTPUT" && rm $TMP_DIR/scan-[0-9]*.pdf
+
+else
+	mv "$TMP_DIR/scan-1.pdf" "$OUTPUT"
+fi
+echo >&2 "Done."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

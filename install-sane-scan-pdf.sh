@@ -8,7 +8,7 @@ cd /usr/local/lib/
 sudo mkdir -p sane-scan-pdf
 cd sane-scan-pdf
 
-sudo tar -xzf $DIR/data/sane-scan-pdf/sane-scan-pdf.tar.gz
+sudo cp -u $DIR/data/sane-scan-pdf/* ./
 sudo chmod a+x scan scan_perpage
 
 sudo rm -f /usr/local/bin/sane-scan-pdf
